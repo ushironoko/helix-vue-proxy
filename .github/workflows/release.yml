@@ -89,8 +89,10 @@ jobs:
               echo "ERROR: binary not found in $pkg_name tarball"
               exit 1
             fi
-            if [ ! -x "$BINARY" ]; then
-              echo "ERROR: binary not executable in $pkg_name"
+            # Check executable permission via file mode (can't use -x for cross-platform binaries)
+            PERMS=$(stat -c '%a' "$BINARY")
+            if [ $((PERMS & 111)) -eq 0 ]; then
+              echo "ERROR: binary not executable in $pkg_name (mode: $PERMS)"
               exit 1
             fi
             PKG_JSON="$TMP_DIR/package/package.json"
@@ -98,7 +100,7 @@ jobs:
               echo "ERROR: package.json not found in $pkg_name tarball"
               exit 1
             fi
-            echo "Smoke test passed for $pkg_name"
+            echo "Smoke test passed for $pkg_name (mode: $PERMS)"
             rm -rf "$TMP_DIR"
           done
 
