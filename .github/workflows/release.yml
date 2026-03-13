@@ -4,6 +4,7 @@ on:
     tags: ["v*"]
 permissions:
   contents: write
+  id-token: write
 
 jobs:
   build:
@@ -108,11 +109,9 @@ jobs:
         run: |
           for pkg_dir in npm/cli-*/; do
             cd "$pkg_dir"
-            pnpm publish --access public --no-git-checks
+            pnpm publish --access public --no-git-checks --provenance
             cd -
           done
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Wait for npm propagation
         run: |
@@ -152,9 +151,7 @@ jobs:
             fs.writeFileSync('npm/helix-vue-proxy/package.json', JSON.stringify(pkg, null, 2) + '\n');
           "
           cd npm/helix-vue-proxy
-          pnpm publish --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          pnpm publish --no-git-checks --provenance
 
       - uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2
         with:
