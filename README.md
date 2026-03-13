@@ -28,6 +28,16 @@ The proxy transparently passes all LSP messages between Helix and `vue-language-
 npm install -g vue-language-server typescript-language-server typescript @vue/typescript-plugin
 ```
 
+### npm (recommended)
+
+```bash
+npm install -g helix-vue-proxy
+```
+
+Prebuilt binaries are available for:
+- macOS (ARM64, x64)
+- Linux (x64, glibc)
+
 ### Build from source
 
 ```bash
