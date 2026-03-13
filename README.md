@@ -38,6 +38,14 @@ Prebuilt binaries are available for:
 - macOS (ARM64, x64)
 - Linux (x64, glibc)
 
+> **Note**: Some package managers (bun, pnpm) may not preserve the executable permission of the binary. If you get an `EACCES` error, run:
+>
+> ```bash
+> chmod +x $(node -e "console.log(require.resolve('@helix-vue-proxy/cli-darwin-arm64/helix-vue-proxy'))")
+> ```
+>
+> Replace `cli-darwin-arm64` with your platform (`cli-darwin-x64`, `cli-linux-x64-gnu`).
+
 ### Build from source
 
 ```bash
