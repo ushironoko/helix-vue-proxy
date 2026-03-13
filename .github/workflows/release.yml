@@ -83,16 +83,22 @@ jobs:
             TARBALL=$(pnpm pack 2>/dev/null | tail -1)
             cd -
             TMP_DIR=$(mktemp -d)
-            cd "$TMP_DIR"
-            npm init -y > /dev/null 2>&1
-            npm install "$GITHUB_WORKSPACE/$pkg_dir/$TARBALL"
-            BINARY=$(find node_modules -name helix-vue-proxy -type f)
+            tar xzf "$pkg_dir/$TARBALL" -C "$TMP_DIR"
+            BINARY="$TMP_DIR/package/helix-vue-proxy"
+            if [ ! -f "$BINARY" ]; then
+              echo "ERROR: binary not found in $pkg_name tarball"
+              exit 1
+            fi
             if [ ! -x "$BINARY" ]; then
               echo "ERROR: binary not executable in $pkg_name"
               exit 1
             fi
+            PKG_JSON="$TMP_DIR/package/package.json"
+            if [ ! -f "$PKG_JSON" ]; then
+              echo "ERROR: package.json not found in $pkg_name tarball"
+              exit 1
+            fi
             echo "Smoke test passed for $pkg_name"
-            cd -
             rm -rf "$TMP_DIR"
           done
 
