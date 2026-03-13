@@ -1,0 +1,14 @@
+{
+  "name": "@helix-vue-proxy/cli-darwin-x64",
+  "version": "0.0.0",
+  "description": "helix-vue-proxy macOS x64 binary",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ushironoko/helix-vue-proxy.git"
+  },
+  "os": ["darwin"],
+  "cpu": ["x64"],
+  "files": ["helix-vue-proxy"],
+  "publishConfig": { "access": "public" }
+}

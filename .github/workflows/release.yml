@@ -1,0 +1,105 @@
+name: Release
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            npm_pkg: cli-darwin-arm64
+          - target: x86_64-apple-darwin
+            os: macos-13
+            npm_pkg: cli-darwin-x64
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            npm_pkg: cli-linux-x64-gnu
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: dtolnay/rust-toolchain@631a55b12751854ce901bb631d5902ceb48146f7 # stable
+        with:
+          targets: ${{ matrix.target }}
+      - run: cargo build --release --target ${{ matrix.target }}
+        env:
+          RUSTFLAGS: "-C strip=symbols"
+      - run: cargo test --release --target ${{ matrix.target }}
+      - run: |
+          mkdir -p npm/${{ matrix.npm_pkg }}
+          cp target/${{ matrix.target }}/release/helix-vue-proxy npm/${{ matrix.npm_pkg }}/
+          chmod +x npm/${{ matrix.npm_pkg }}/helix-vue-proxy
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ${{ matrix.npm_pkg }}
+          path: npm/${{ matrix.npm_pkg }}/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+
+      - id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          path: artifacts/
+
+      - name: Prepare and publish platform packages
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          for pkg_dir in npm/cli-*/; do
+            pkg_name=$(basename "$pkg_dir")
+            cp artifacts/"$pkg_name"/helix-vue-proxy "$pkg_dir"/helix-vue-proxy
+            chmod +x "$pkg_dir"/helix-vue-proxy
+            node -e "
+              const fs = require('fs');
+              const pkg = JSON.parse(fs.readFileSync('$pkg_dir/package.json', 'utf8'));
+              pkg.version = '$VERSION';
+              fs.writeFileSync('$pkg_dir/package.json', JSON.stringify(pkg, null, 2) + '\n');
+            "
+            cd "$pkg_dir"
+            pnpm publish --access public --no-git-checks
+            cd -
+          done
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Wait for npm propagation
+        run: sleep 30
+
+      - name: Prepare and publish main package
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('npm/helix-vue-proxy/package.json', 'utf8'));
+            pkg.version = '$VERSION';
+            for (const dep of Object.keys(pkg.optionalDependencies || {})) {
+              pkg.optionalDependencies[dep] = '$VERSION';
+            }
+            fs.writeFileSync('npm/helix-vue-proxy/package.json', JSON.stringify(pkg, null, 2) + '\n');
+          "
+          cd npm/helix-vue-proxy
+          pnpm publish --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2
+        with:
+          generate_release_notes: true

@@ -1,0 +1,20 @@
+{
+  "name": "helix-vue-proxy",
+  "version": "0.0.0",
+  "description": "LSP proxy enabling full Vue support in Helix editor",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ushironoko/helix-vue-proxy.git"
+  },
+  "bin": {
+    "helix-vue-proxy": "bin/helix-vue-proxy"
+  },
+  "files": ["bin/helix-vue-proxy"],
+  "engines": { "node": ">=18" },
+  "optionalDependencies": {
+    "@helix-vue-proxy/cli-darwin-arm64": "0.0.0",
+    "@helix-vue-proxy/cli-darwin-x64": "0.0.0",
+    "@helix-vue-proxy/cli-linux-x64-gnu": "0.0.0"
+  }
+}
