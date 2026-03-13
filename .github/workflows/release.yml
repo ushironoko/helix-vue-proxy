@@ -17,7 +17,7 @@ jobs:
             os: macos-13
             npm_pkg: cli-darwin-x64
           - target: x86_64-unknown-linux-gnu
-            os: ubuntu-latest
+            os: ubuntu-22.04
             npm_pkg: cli-linux-x64-gnu
     runs-on: ${{ matrix.os }}
     steps:
@@ -60,7 +60,7 @@ jobs:
         with:
           path: artifacts/
 
-      - name: Prepare and publish platform packages
+      - name: Prepare platform packages
         run: |
           VERSION="${{ steps.version.outputs.VERSION }}"
           for pkg_dir in npm/cli-*/; do
@@ -73,6 +73,32 @@ jobs:
               pkg.version = '$VERSION';
               fs.writeFileSync('$pkg_dir/package.json', JSON.stringify(pkg, null, 2) + '\n');
             "
+          done
+
+      - name: Smoke test platform packages
+        run: |
+          for pkg_dir in npm/cli-*/; do
+            pkg_name=$(basename "$pkg_dir")
+            cd "$pkg_dir"
+            TARBALL=$(pnpm pack 2>/dev/null | tail -1)
+            cd -
+            TMP_DIR=$(mktemp -d)
+            cd "$TMP_DIR"
+            npm init -y > /dev/null 2>&1
+            npm install "$GITHUB_WORKSPACE/$pkg_dir/$TARBALL"
+            BINARY=$(find node_modules -name helix-vue-proxy -type f)
+            if [ ! -x "$BINARY" ]; then
+              echo "ERROR: binary not executable in $pkg_name"
+              exit 1
+            fi
+            echo "Smoke test passed for $pkg_name"
+            cd -
+            rm -rf "$TMP_DIR"
+          done
+
+      - name: Publish platform packages
+        run: |
+          for pkg_dir in npm/cli-*/; do
             cd "$pkg_dir"
             pnpm publish --access public --no-git-checks
             cd -
@@ -81,7 +107,29 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Wait for npm propagation
-        run: sleep 30
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          PACKAGES=(
+            "@helix-vue-proxy/cli-darwin-arm64"
+            "@helix-vue-proxy/cli-darwin-x64"
+            "@helix-vue-proxy/cli-linux-x64-gnu"
+          )
+          MAX_ATTEMPTS=30
+          for pkg in "${PACKAGES[@]}"; do
+            echo "Waiting for $pkg@$VERSION to be available on npm..."
+            for i in $(seq 1 $MAX_ATTEMPTS); do
+              if npm view "$pkg@$VERSION" version 2>/dev/null | grep -q "$VERSION"; then
+                echo "$pkg@$VERSION is available"
+                break
+              fi
+              if [ "$i" -eq "$MAX_ATTEMPTS" ]; then
+                echo "ERROR: $pkg@$VERSION not available after $MAX_ATTEMPTS attempts"
+                exit 1
+              fi
+              echo "  Attempt $i/$MAX_ATTEMPTS - not yet available, waiting 10s..."
+              sleep 10
+            done
+          done
 
       - name: Prepare and publish main package
         run: |
